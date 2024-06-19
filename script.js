@@ -1,109 +1,107 @@
-// Initialize canvas and context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
-// Define game variables
+canvas.width = window.innerWidth * 0.8;
+canvas.height = window.innerHeight * 0.8;
+
+const ballRadius = 20;
+let ballX = canvas.width / 2;
+let ballY = canvas.height - ballRadius;
+let ballSpeedX = 2;
+let ballSpeedY = -2;
+
+const paddleHeight = 10;
+const paddleWidth = 75;
+let paddleX = (canvas.width - paddleWidth) / 2;
+
+let rightPressed = false;
+let leftPressed = false;
+
 let score = 0;
-let ball = { x: canvas.width / 2, y: canvas.height / 2, radius: 10 };
-let ballSpeedX = 5;
-let ballSpeedY = 5;
-let teleported = false;
-let isMouseDown = false;
 
-// Function to increase speed as score increases
-function increaseSpeed() {
-    if (score % 10 === 0 && score > 0) {
-        ballSpeedX += 1;
-        ballSpeedY += 1;
+document.addEventListener('keydown', keyDownHandler);
+document.addEventListener('keyup', keyUpHandler);
+document.addEventListener('mousemove', mouseMoveHandler);
+
+function keyDownHandler(e) {
+    if (e.key == 'Right' || e.key == 'ArrowRight') {
+        rightPressed = true;
+    } else if (e.key == 'Left' || e.key == 'ArrowLeft') {
+        leftPressed = true;
     }
 }
 
-// Function to teleport ball after score 100
-function teleportBall() {
-    if (score >= 100 && !teleported) {
-        ball.x = Math.random() * canvas.width;
-        ball.y = Math.random() * canvas.height;
-        teleported = true;
+function keyUpHandler(e) {
+    if (e.key == 'Right' || e.key == 'ArrowRight') {
+        rightPressed = false;
+    } else if (e.key == 'Left' || e.key == 'ArrowLeft') {
+        leftPressed = false;
     }
 }
 
-// Function to update game state
-function updateGame() {
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function mouseMoveHandler(e) {
+    const relativeX = e.clientX - canvas.offsetLeft;
+    if (relativeX > 0 && relativeX < canvas.width) {
+        paddleX = relativeX - paddleWidth / 2;
+    }
+}
 
-    // Draw ball
+function drawBall() {
     ctx.beginPath();
-    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-    ctx.fillStyle = '#0095DD';
+    ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
     ctx.fill();
     ctx.closePath();
-
-    // Update ball position
-    ball.x += ballSpeedX;
-    ball.y += ballSpeedY;
-
-    // Check for wall collisions
-    if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
-        ballSpeedX = -ballSpeedX;
-    }
-    if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
-        ballSpeedY = -ballSpeedY;
-    }
-
-    // Update score
-    score++;
-
-    // Increase speed as score increases
-    increaseSpeed();
-
-    // Teleport ball after score 100
-    teleportBall();
-
-    // Display score
-    ctx.font = '20px Arial';
-    ctx.fillStyle = '#333';
-    ctx.fillText('Score: ' + score, 10, 30);
-
-    // Request animation frame
-    requestAnimationFrame(updateGame);
 }
 
-// Event listeners for mouse and touch events
-canvas.addEventListener('mousedown', () => {
-    isMouseDown = true;
-});
+function drawPaddle() {
+    ctx.beginPath();
+    ctx.rect(paddleX, canvas.height - paddleHeight, paddleWidth, paddleHeight);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.closePath();
+}
 
-canvas.addEventListener('mouseup', () => {
-    isMouseDown = false;
-});
+function drawScore() {
+    document.getElementById('score').innerText = score;
+}
 
-canvas.addEventListener('mousemove', (event) => {
-    if (isMouseDown) {
-        ball.x = event.clientX - canvas.getBoundingClientRect().left;
-        ball.y = event.clientY - canvas.getBoundingClientRect().top;
+function collisionDetection() {
+    if (ballX + ballSpeedX > canvas.width - ballRadius || ballX + ballSpeedX < ballRadius) {
+        ballSpeedX = -ballSpeedX;
     }
-});
-
-canvas.addEventListener('touchstart', (event) => {
-    isMouseDown = true;
-    const touch = event.touches[0];
-    ball.x = touch.clientX - canvas.getBoundingClientRect().left;
-    ball.y = touch.clientY - canvas.getBoundingClientRect().top;
-});
-
-canvas.addEventListener('touchmove', (event) => {
-    event.preventDefault();
-    if (isMouseDown) {
-        const touch = event.touches[0];
-        ball.x = touch.clientX - canvas.getBoundingClientRect().left;
-        ball.y = touch.clientY - canvas.getBoundingClientRect().top;
+    if (ballY + ballSpeedY < ballRadius) {
+        ballSpeedY = -ballSpeedY;
+    } else if (ballY + ballSpeedY > canvas.height - ballRadius) {
+        if (ballX > paddleX && ballX < paddleX + paddleWidth) {
+            ballSpeedY = -ballSpeedY;
+            score++;
+        } else {
+            document.location.reload();
+        }
     }
-});
+}
 
-canvas.addEventListener('touchend', () => {
-    isMouseDown = false;
-});
+function movePaddle() {
+    if (rightPressed && paddleX < canvas.width - paddleWidth) {
+        paddleX += 7;
+    } else if (leftPressed && paddleX > 0) {
+        paddleX -= 7;
+    }
+}
 
-// Start game loop
-updateGame();
+function update() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBall();
+    drawPaddle();
+    drawScore();
+    collisionDetection();
+    movePaddle();
+
+    ballX += ballSpeedX;
+    ballY += ballSpeedY;
+
+    requestAnimationFrame(update);
+}
+
+update();
