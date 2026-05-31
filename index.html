@@ -261,6 +261,10 @@
                 <div>MULTIPLIER</div>
                 <div id="multiplierValue">1x</div>
             </div>
+            <div class="stat">
+                <div>BEST</div>
+                <div id="highScoreValue">0</div>
+            </div>
         </div>
 
         <div class="canvas-container">
@@ -271,6 +275,8 @@
             <div class="game-over-overlay hidden" id="gameOverOverlay">
                 <div class="game-over-text">GAME OVER</div>
                 <div class="final-score">Final Score: <span id="finalScore">0</span></div>
+                <div class="final-score" id="newRecordText" style="color:#ffd700; display:none;">NEW HIGH SCORE!</div>
+                <div class="final-score">Best: <span id="bestScoreOverlay">0</span></div>
                 <button class="game-button" onclick="startGame()">PLAY AGAIN</button>
             </div>
         </div>
@@ -311,8 +317,41 @@
             activePowerups: new Set(),
             brickColors: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3', '#54a0ff'],
             comboCount: 0,
-            lastHitTime: 0
+            lastHitTime: 0,
+            highScore: 0
         };
+
+        // Persistent high-score system (localStorage with safe fallback)
+        const HIGH_SCORE_KEY = 'nexusBallz.highScore';
+
+        function loadHighScore() {
+            try {
+                const stored = window.localStorage.getItem(HIGH_SCORE_KEY);
+                gameState.highScore = stored ? parseInt(stored, 10) || 0 : 0;
+            } catch (e) {
+                // localStorage may be unavailable (private mode / file://); keep in-memory only
+                gameState.highScore = gameState.highScore || 0;
+            }
+            return gameState.highScore;
+        }
+
+        function saveHighScore(score) {
+            try {
+                window.localStorage.setItem(HIGH_SCORE_KEY, String(score));
+            } catch (e) {
+                // Ignore write failures; the value still lives in gameState for the session
+            }
+        }
+
+        // Returns true if the given score sets a new record
+        function updateHighScore(score) {
+            if (score > gameState.highScore) {
+                gameState.highScore = score;
+                saveHighScore(score);
+                return true;
+            }
+            return false;
+        }
 
         // Difficulty settings
         const difficulties = {
@@ -840,11 +879,22 @@
             document.getElementById('levelValue').textContent = gameState.level;
             document.getElementById('livesValue').textContent = gameState.lives;
             document.getElementById('multiplierValue').textContent = gameState.multiplier + 'x';
+
+            // Keep the best score live so beating it mid-run is reflected immediately
+            updateHighScore(gameState.score);
+            document.getElementById('highScoreValue').textContent = gameState.highScore.toLocaleString();
         }
 
         function gameOver() {
             cancelAnimationFrame(gameState.animationId);
+            const isNewRecord = updateHighScore(gameState.score);
             document.getElementById('finalScore').textContent = gameState.score.toLocaleString();
+            document.getElementById('bestScoreOverlay').textContent = gameState.highScore.toLocaleString();
+            document.getElementById('newRecordText').style.display = isNewRecord ? 'block' : 'none';
+            document.getElementById('highScoreValue').textContent = gameState.highScore.toLocaleString();
+            if (typeof soundManager !== 'undefined') {
+                soundManager.playGameOver();
+            }
             document.getElementById('gameOverOverlay').classList.remove('hidden');
         }
 
@@ -1071,6 +1121,7 @@
         // Initialize everything when page loads
         document.addEventListener('DOMContentLoaded', () => {
             createBackgroundParticles();
+            loadHighScore();
             initializeGame();
             
             // Auto-resize canvas for different screen sizes
